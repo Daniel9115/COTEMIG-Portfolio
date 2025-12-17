@@ -1,0 +1,27 @@
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<IdentityUser> UserManager
+@rendermode InteractiveServer
+
+<AuthorizeView>
+    <Authorized>
+        <div class="dropdown">
+            <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                Olá, @GetUserName(context.User)!
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="/logout">Sair</a></li>
+            </ul>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <a class="btn btn-outline-light me-2" href="/login">Entrar</a>
+        <a class="btn btn-light" href="/register">Registrar</a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private string GetUserName(System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user.Identity?.Name ?? "Usuário";
+    }
+}

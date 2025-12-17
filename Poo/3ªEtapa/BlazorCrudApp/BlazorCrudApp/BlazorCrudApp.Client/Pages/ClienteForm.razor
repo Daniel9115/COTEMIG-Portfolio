@@ -1,0 +1,65 @@
+﻿@page "/cliente/novo"
+@page "/cliente/editar/{id:int}"
+@using BlazorCrudApp.Shared.Models
+@using BlazorCrudApp.Client.Services
+@inject IClienteService ClienteService
+@inject NavigationManager Navigation
+
+<PageTitle>@(Id.HasValue ? "Editar Cliente" : "Novo Cliente")</PageTitle>
+
+<h3>@(Id.HasValue ? "Editar Cliente" : "Novo Cliente")</h3>
+
+<EditForm Model="cliente" OnValidSubmit="SalvarCliente">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" />
+
+    <div class="mb-3">
+        <label class="form-label">Nome:</label>
+        <InputText class="form-control" @bind-Value="cliente.Nome" />
+        <ValidationMessage For="@(() => cliente.Nome)" class="text-danger" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Email:</label>
+        <InputText class="form-control" @bind-Value="cliente.Email" />
+        <ValidationMessage For="@(() => cliente.Email)" class="text-danger" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Telefone:</label>
+        <InputText class="form-control" @bind-Value="cliente.Telefone" />
+        <ValidationMessage For="@(() => cliente.Telefone)" class="text-danger" />
+    </div>
+
+    <button type="submit" class="btn btn-success me-2">Salvar</button>
+    <button type="button" class="btn btn-secondary" @onclick="Cancelar">Cancelar</button>
+</EditForm>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    private Cliente cliente = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id.HasValue)
+        {
+            var existente = await ClienteService.GetCliente(Id.Value);
+            if (existente != null)
+                cliente = existente;
+            else
+                Navigation.NavigateTo("/clientes");
+        }
+    }
+
+    private async Task SalvarCliente()
+    {
+        if (Id.HasValue)
+            await ClienteService.UpdateCliente(cliente);
+        else
+            await ClienteService.AddCliente(cliente);
+
+        Navigation.NavigateTo("/clientes");
+    }
+
+    private void Cancelar() => Navigation.NavigateTo("/clientes");
+}

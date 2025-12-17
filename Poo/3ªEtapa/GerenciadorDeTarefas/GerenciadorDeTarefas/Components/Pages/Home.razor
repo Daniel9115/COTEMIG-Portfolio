@@ -1,0 +1,52 @@
+@page "/"
+@using Microsoft.AspNetCore.Authorization
+
+<PageTitle>Gerenciador de Tarefas</PageTitle>
+
+<div class="container mt-4">
+    <div class="jumbotron bg-primary text-white p-5 rounded">
+        <h1 class="display-4">Bem-vindo ao Gerenciador de Tarefas!</h1>
+        <p class="lead">Organize suas atividades de forma simples e eficiente.</p>
+        
+        <AuthorizeView>
+            <Authorized>
+                <hr class="my-4">
+                <p>Olá, @context.User.Identity?.Name! Você está logado no sistema.</p>
+                <a class="btn btn-light btn-lg" href="/tarefas" role="button">Ver Minhas Tarefas</a>
+            </Authorized>
+            <NotAuthorized>
+                <hr class="my-4">
+                <p>Para começar a usar o sistema, faça login ou crie uma nova conta.</p>
+                <a class="btn btn-light btn-lg me-3" href="/login" role="button">Fazer Login</a>
+                <a class="btn btn-outline-light btn-lg" href="/register" role="button">Criar Conta</a>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">📝 Criar Tarefas</h5>
+                    <p class="card-text">Adicione novas tarefas com título, descrição e data de vencimento.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">✅ Acompanhar Progresso</h5>
+                    <p class="card-text">Marque tarefas como concluídas e acompanhe seu progresso.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">🔍 Filtrar e Organizar</h5>
+                    <p class="card-text">Use filtros e ordenação para encontrar rapidamente suas tarefas.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

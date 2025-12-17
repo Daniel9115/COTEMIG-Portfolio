@@ -1,0 +1,81 @@
+@page "/"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<PageTitle>Dashboard - Gerenciador de Tarefas</PageTitle>
+
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="text-center mb-5">
+                <h1 class="page-title">
+                    <i class="fas fa-tasks me-3"></i>Gerenciador de Tarefas
+                </h1>
+                <p class="lead text-muted">Organize suas tarefas de forma simples e eficiente</p>
+            </div>
+
+            <div class="row g-4 mb-5">
+                <div class="col-md-6">
+                    <div class="card h-100 text-center">
+                        <div class="card-body d-flex flex-column">
+                            <i class="fas fa-plus-circle fa-3x text-primary mb-3"></i>
+                            <h5 class="card-title">Criar Nova Tarefa</h5>
+                            <p class="card-text flex-grow-1">Adicione uma nova tarefa ao seu gerenciador</p>
+                            <a href="/tarefas" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Nova Tarefa
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100 text-center">
+                        <div class="card-body d-flex flex-column">
+                            <i class="fas fa-list fa-3x text-success mb-3"></i>
+                            <h5 class="card-title">Minhas Tarefas</h5>
+                            <p class="card-text flex-grow-1">Visualize e gerencie todas as suas tarefas</p>
+                            <a href="/tarefas" class="btn btn-success">
+                                <i class="fas fa-eye me-2"></i>Ver Tarefas
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-info-circle me-2"></i>Funcionalidades
+                    </h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>Criar e editar tarefas
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>Marcar como concluída
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>Filtrar por status
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>Buscar tarefas
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>Compartilhar com outros usuários
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>Controle de vencimento
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

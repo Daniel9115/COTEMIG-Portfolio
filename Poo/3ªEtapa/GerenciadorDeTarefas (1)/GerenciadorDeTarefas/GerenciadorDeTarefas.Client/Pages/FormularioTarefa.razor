@@ -1,0 +1,89 @@
+@page "/tarefa"
+@page "/tarefa/{id:int}"
+@using GerenciadorDeTarefas.Shared
+@using System.Net.Http.Json
+@using Blazored.Toast.Services
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IToastService ToastService
+@rendermode InteractiveAuto
+
+<PageTitle>@(Id.HasValue ? "Editar Tarefa" : "Nova Tarefa")</PageTitle>
+
+<h3>@(Id.HasValue ? "Editar Tarefa" : "Nova Tarefa")</h3>
+
+<EditForm Model="tarefa" OnValidSubmit="SalvarTarefa">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" />
+
+    <div class="mb-3">
+        <label for="titulo" class="form-label">Título:</label>
+        <InputText id="titulo" @bind-Value="tarefa.Titulo" class="form-control" />
+        <ValidationMessage For="@(() => tarefa.Titulo)" />
+    </div>
+
+    <div class="mb-3">
+        <label for="descricao" class="form-label">Descrição:</label>
+        <InputTextArea id="descricao" @bind-Value="tarefa.Descricao" class="form-control" rows="3" />
+        <ValidationMessage For="@(() => tarefa.Descricao)" />
+    </div>
+
+    <div class="mb-3">
+        <label for="dataVencimento" class="form-label">Data de Vencimento:</label>
+        <InputDate id="dataVencimento" @bind-Value="tarefa.DataVencimento" class="form-control" />
+    </div>
+
+    <div class="mb-3 form-check">
+        <InputCheckbox id="concluida" @bind-Value="tarefa.Concluida" class="form-check-input" />
+        <label for="concluida" class="form-check-label">Concluída</label>
+    </div>
+
+    <div class="mb-3">
+        <button type="submit" class="btn btn-primary me-2">Salvar</button>
+        <button type="button" class="btn btn-secondary" @onclick="Cancelar">Cancelar</button>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private Tarefa tarefa = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id.HasValue)
+        {
+            var tarefaExistente = await Http.GetFromJsonAsync<Tarefa>($"api/tarefas/{Id.Value}");
+            if (tarefaExistente != null)
+                tarefa = tarefaExistente;
+        }
+    }
+
+    private async Task SalvarTarefa()
+    {
+        try
+        {
+            if (Id.HasValue)
+            {
+                await Http.PutAsJsonAsync($"api/tarefas/{Id.Value}", tarefa);
+                ToastService.ShowSuccess("Tarefa atualizada com sucesso!");
+            }
+            else
+            {
+                await Http.PostAsJsonAsync("api/tarefas", tarefa);
+                ToastService.ShowSuccess("Tarefa criada com sucesso!");
+            }
+
+            Navigation.NavigateTo("/tarefas");
+        }
+        catch
+        {
+            ToastService.ShowError("Erro ao salvar a tarefa. Tente novamente.");
+        }
+    }
+
+    private void Cancelar()
+    {
+        Navigation.NavigateTo("/tarefas");
+    }
+}

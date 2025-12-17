@@ -1,0 +1,164 @@
+@using GerenciadorDeTarefas.Shared.Models
+@using GerenciadorDeTarefas.Client.Services
+@inject TarefaService TarefaService
+@inject IJSRuntime JSRuntime
+
+<div class="container mt-4">
+    <h3>Minhas Tarefas</h3>
+    
+    <button class="btn btn-primary mb-3" @onclick="CarregarTarefas">Atualizar Lista</button>
+    
+    @if (tarefas == null)
+    {
+        <p>Carregando...</p>
+    }
+    else if (!tarefas.Any())
+    {
+        <p>Nenhuma tarefa encontrada.</p>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var tarefa in tarefas.OrderBy(t => t.Concluida).ThenBy(t => t.DataVencimento))
+            {
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card @(tarefa.Concluida ? "border-success" : (tarefa.DataVencimento < DateTime.Now ? "border-danger" : "border-warning"))">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0 @(tarefa.Concluida ? "text-decoration-line-through text-muted" : "")">
+                                @tarefa.Titulo
+                            </h6>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" 
+                                       checked="@tarefa.Concluida" 
+                                       @onchange="() => AlternarConclusao(tarefa.Id)" />
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text @(tarefa.Concluida ? "text-muted" : "")">@tarefa.Descricao</p>
+                            <small class="text-muted">
+                                Vencimento: @tarefa.DataVencimento.ToString("dd/MM/yyyy")
+                                @if (tarefa.DataVencimento < DateTime.Now && !tarefa.Concluida)
+                                {
+                                    <span class="badge bg-danger ms-2">Atrasada</span>
+                                }
+                                @if (tarefa.Concluida)
+                                {
+                                    <span class="badge bg-success ms-2">Concluída</span>
+                                }
+                            </small>
+                        </div>
+                        <div class="card-footer">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => CompartilharTarefa(tarefa.Id)">
+                                Compartilhar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@if (mostrarModalCompartilhar)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Compartilhar Tarefa</h5>
+                    <button type="button" class="btn-close" @onclick="FecharModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">ID do Usuário:</label>
+                        <input type="text" class="form-control" @bind="usuarioParaCompartilhar" 
+                               placeholder="Digite o ID do usuário" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(mensagemErro))
+                    {
+                        <div class="alert alert-danger">@mensagemErro</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="FecharModal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="ConfirmarCompartilhamento">
+                        Compartilhar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Tarefa>? tarefas;
+    private bool mostrarModalCompartilhar = false;
+    private int tarefaIdParaCompartilhar;
+    private string usuarioParaCompartilhar = "";
+    private string mensagemErro = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarTarefas();
+    }
+
+    private async Task CarregarTarefas()
+    {
+        try
+        {
+            tarefas = await TarefaService.GetMinhasTarefasAsync();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao carregar tarefas: {ex.Message}");
+        }
+    }
+
+    private async Task AlternarConclusao(int tarefaId)
+    {
+        try
+        {
+            await TarefaService.AlternarConclusaoAsync(tarefaId);
+            await CarregarTarefas();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao alterar status da tarefa: {ex.Message}");
+        }
+    }
+
+    private void CompartilharTarefa(int tarefaId)
+    {
+        tarefaIdParaCompartilhar = tarefaId;
+        usuarioParaCompartilhar = "";
+        mensagemErro = "";
+        mostrarModalCompartilhar = true;
+    }
+
+    private async Task ConfirmarCompartilhamento()
+    {
+        if (string.IsNullOrWhiteSpace(usuarioParaCompartilhar))
+        {
+            mensagemErro = "Por favor, digite o ID do usuário.";
+            return;
+        }
+
+        try
+        {
+            await TarefaService.ShareTarefaAsync(tarefaIdParaCompartilhar, usuarioParaCompartilhar);
+            await JSRuntime.InvokeVoidAsync("alert", "Tarefa compartilhada com sucesso!");
+            FecharModal();
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = ex.Message;
+        }
+    }
+
+    private void FecharModal()
+    {
+        mostrarModalCompartilhar = false;
+        mensagemErro = "";
+        usuarioParaCompartilhar = "";
+    }
+}

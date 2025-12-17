@@ -1,0 +1,72 @@
+@using GerenciadorDeTarefas.Shared_.Models
+@using GerenciadorDeTarefas.Client.Service
+@inject TarefaService TarefaService
+
+<div class="modal fade show" tabindex="-1" style="display: @(IsVisible ? "block" : "none");">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Compartilhar Tarefa: @Tarefa?.Titulo</h5>
+                <button type="button" class="btn-close" @onclick="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Insira o ID do usuário (ou Email, dependendo da sua configuração Identity) com quem você deseja compartilhar esta tarefa.</p>
+                <input type="text" class="form-control" @bind="UsuarioIdCompartilhar" placeholder="ID do Usuário ou Email" />
+                @if (!string.IsNullOrEmpty(MensagemErro))
+                {
+                    <div class="alert alert-danger mt-2">@MensagemErro</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="Close">Cancelar</button>
+                <button type="button" class="btn btn-primary" @onclick="Share">Compartilhar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Tarefa? Tarefa { get; set; }
+
+    [Parameter]
+    public EventCallback OnShared { get; set; }
+
+    public bool IsVisible { get; set; } = false;
+    private string UsuarioIdCompartilhar = string.Empty;
+    private string MensagemErro = string.Empty;
+
+    public void Show()
+    {
+        IsVisible = true;
+        UsuarioIdCompartilhar = string.Empty;
+        MensagemErro = string.Empty;
+        StateHasChanged();
+    }
+
+    public void Close()
+    {
+        IsVisible = false;
+        StateHasChanged();
+    }
+
+    private async Task Share()
+    {
+        if (Tarefa == null || string.IsNullOrWhiteSpace(UsuarioIdCompartilhar))
+        {
+            MensagemErro = "Selecione uma tarefa e insira um ID de usuário válido.";
+            return;
+        }
+
+        try
+        {
+            await TarefaService.ShareTarefaAsync(Tarefa.Id, UsuarioIdCompartilhar);
+            await OnShared.InvokeAsync();
+            Close();
+        }
+        catch (Exception ex)
+        {
+            MensagemErro = ex.Message;
+        }
+    }
+}

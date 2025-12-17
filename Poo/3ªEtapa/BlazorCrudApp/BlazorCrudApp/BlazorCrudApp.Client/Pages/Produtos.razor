@@ -1,0 +1,95 @@
+﻿@page "/produtos"
+@using BlazorCrudApp.Shared.Models
+@using BlazorCrudApp.Client.Services
+@inject IProdutoService ProdutoService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@rendermode @(new InteractiveAutoRenderMode(prerender: false))
+<PageTitle>Produtos</PageTitle>
+<h3>Gerenciamento de Produtos</h3>
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="AdicionarProduto">
+        Adicionar Produto
+    </button>
+</div>
+
+@if (produtos == null)
+{
+    <p><em>Carregando...</em></p>
+}
+else if (produtos.Count == 0)
+{
+    <div class="alert alert-info">
+        Nenhum produto encontrado.
+    </div>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr><th>ID</th><th>Nome</th><th>Preço</th><th>Quantidade</th><th>Ações</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var produto in produtos)
+            {
+                <tr>
+                    <td>@produto.Id</td>
+                    <td>@produto.Nome</td>
+                    <td>@produto.Preco.ToString("C")</td>
+                    <td>@produto.Quantidade</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning me-2" @onclick="() => EditarProduto(produto.Id)">Editar</button>
+                        <button class="btn btn-sm btn-danger" @onclick="() => ExcluirProduto(produto.Id)">Excluir</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    // Campo para armazenar a lista de produtos. Pode ser nulo durante o carregamento.
+    private List<Produto>? produtos;
+
+    // Método do ciclo de vida do Blazor que executa quando o componente é inicializado.
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarProdutos();
+    }
+
+    // Método para buscar os produtos da API e atualizar o estado do componente.
+    private async Task CarregarProdutos()
+    {
+        produtos = await ProdutoService.GetProdutos();
+    }
+
+    // Navega para a página de criação de produto.
+    private void AdicionarProduto()
+    {
+        Navigation.NavigateTo("/produto/novo");
+    }
+
+    // Navega para a página de edição do produto com o ID especificado.
+    private void EditarProduto(int id)
+    {
+        Navigation.NavigateTo($"/produto/editar/{id}");
+    }
+
+    // Lida com a exclusão de um produto, incluindo uma confirmação do usuário.
+    private async Task ExcluirProduto(int id)
+    {
+        var produto = produtos?.FirstOrDefault(p => p.Id == id);
+        if (produto != null)
+        {
+            // Usa a interoperabilidade com JavaScript para mostrar uma caixa de diálogo de confirmação.
+            var confirmacao = await JSRuntime.InvokeAsync<bool>("confirm",
+                $"Tem certeza que deseja excluir o produto '{produto.Nome}'?");
+
+            if (confirmacao)
+            {
+                await ProdutoService.DeleteProduto(id);
+                await CarregarProdutos(); // Recarrega a lista após a exclusão.
+            }
+        }
+    }
+}

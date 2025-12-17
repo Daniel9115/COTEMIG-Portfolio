@@ -1,0 +1,116 @@
+@page "/register"
+@using Microsoft.AspNetCore.Identity
+@using System.ComponentModel.DataAnnotations
+@inject UserManager<IdentityUser> UserManager
+@inject SignInManager<IdentityUser> SignInManager
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Registro - Gerenciador de Tarefas</PageTitle>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="text-center">Criar Conta</h3>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="registerModel" OnValidSubmit="HandleRegister">
+                        <DataAnnotationsValidator />
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email:</label>
+                            <InputText id="email" class="form-control" @bind-Value="registerModel.Email" />
+                            <ValidationMessage For="@(() => registerModel.Email)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Senha:</label>
+                            <InputText id="password" type="password" class="form-control" @bind-Value="registerModel.Password" />
+                            <ValidationMessage For="@(() => registerModel.Password)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Confirmar Senha:</label>
+                            <InputText id="confirmPassword" type="password" class="form-control" @bind-Value="registerModel.ConfirmPassword" />
+                            <ValidationMessage For="@(() => registerModel.ConfirmPassword)" />
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">
+                                @errorMessage
+                            </div>
+                        }
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success" disabled="@isLoading">
+                                @if (isLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                Criar Conta
+                            </button>
+                        </div>
+                    </EditForm>
+
+                    <div class="text-center mt-3">
+                        <p>Já tem uma conta? <a href="/login">Faça login aqui</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterModel registerModel = new();
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+
+    private async Task HandleRegister()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var user = new IdentityUser { UserName = registerModel.Email, Email = registerModel.Email };
+            var result = await UserManager.CreateAsync(user, registerModel.Password);
+
+            if (result.Succeeded)
+            {
+                await SignInManager.SignInAsync(user, isPersistent: false);
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                errorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Erro ao criar conta. Tente novamente.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    public class RegisterModel
+    {
+        [Required(ErrorMessage = "Email é obrigatório")]
+        [EmailAddress(ErrorMessage = "Email inválido")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Senha é obrigatória")]
+        [StringLength(100, ErrorMessage = "A senha deve ter pelo menos {2} caracteres.", MinimumLength = 6)]
+        public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Confirmação de senha é obrigatória")]
+        [Compare("Password", ErrorMessage = "As senhas não coincidem.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

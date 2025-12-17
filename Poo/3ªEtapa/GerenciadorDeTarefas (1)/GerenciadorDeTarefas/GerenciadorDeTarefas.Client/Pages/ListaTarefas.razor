@@ -1,0 +1,221 @@
+@page "/tarefas"
+@using GerenciadorDeTarefas.Shared
+@using GerenciadorDeTarefas.Client.Components
+@using System.Net.Http.Json
+@using Blazored.Toast.Services
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IToastService ToastService
+@rendermode InteractiveAuto
+
+<PageTitle>Lista de Tarefas</PageTitle>
+
+<h3>Gerenciador de Tarefas</h3>
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="NovatTarefa">Nova Tarefa</button>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <input @bind="filtroTitulo" @oninput="FiltrarTarefas" class="form-control" placeholder="Filtrar por título" />
+    </div>
+    <div class="col-md-3">
+        <select @bind="filtroStatus" @bind:after="FiltrarTarefas" class="form-select">
+            <option value="">Todas</option>
+            <option value="pendentes">Pendentes</option>
+            <option value="concluidas">Concluídas</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select @bind="ordenacao" @bind:after="OrdenarTarefas" class="form-select">
+            <option value="titulo">Ordenar por Título</option>
+            <option value="vencimento">Ordenar por Vencimento</option>
+        </select>
+    </div>
+</div>
+
+@if (tarefasFiltradas == null)
+{
+    <p><em>Carregando...</em></p>
+}
+else if (!tarefasFiltradas.Any())
+{
+    <p>Nenhuma tarefa encontrada.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Título</th>
+                    <th>Descrição</th>
+                    <th>Vencimento</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var tarefa in tarefasPaginadas)
+                {
+                    <tr class="@(tarefa.Concluida ? "table-success" : "")">
+                        <td>@tarefa.Id</td>
+                        <td>@tarefa.Titulo</td>
+                        <td>@tarefa.Descricao</td>
+                        <td>@(tarefa.DataVencimento?.ToString("dd/MM/yyyy") ?? "-")</td>
+                        <td>
+                            <input type="checkbox" @bind="tarefa.Concluida" @bind:after="() => AlternarStatus(tarefa)" />
+                            @(tarefa.Concluida ? "Concluída" : "Pendente")
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-warning me-2" @onclick="() => EditarTarefa(tarefa.Id)">Editar</button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => ExcluirTarefa(tarefa.Id)">Excluir</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginação -->
+    <nav>
+        <ul class="pagination">
+            <li class="page-item @(paginaAtual == 1 ? "disabled" : "")">
+                <button class="page-link" @onclick="() => MudarPagina(paginaAtual - 1)">Anterior</button>
+            </li>
+            @for (int i = 1; i <= totalPaginas; i++)
+            {
+                <li class="page-item @(i == paginaAtual ? "active" : "")">
+                    <button class="page-link" @onclick="() => MudarPagina(i)">@i</button>
+                </li>
+            }
+            <li class="page-item @(paginaAtual == totalPaginas ? "disabled" : "")">
+                <button class="page-link" @onclick="() => MudarPagina(paginaAtual + 1)">Próxima</button>
+            </li>
+        </ul>
+    </nav>
+}
+
+<ModalConfirmacao Mostrar="mostrarModal"
+                  Titulo="Confirmar Exclusão"
+                  Mensagem="Tem certeza que deseja excluir esta tarefa? Esta ação não pode ser desfeita."
+                  OnConfirmar="ConfirmarExclusaoModal"
+                  OnCancelar="CancelarExclusao" />
+
+@code {
+    private List<Tarefa>? tarefas;
+    private List<Tarefa>? tarefasFiltradas;
+    private List<Tarefa> tarefasPaginadas = new();
+    private string filtroTitulo = "";
+    private string filtroStatus = "";
+    private string ordenacao = "titulo";
+    private int paginaAtual = 1;
+    private int itensPorPagina = 5;
+    private int totalPaginas = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarTarefas();
+    }
+
+    private async Task CarregarTarefas()
+    {
+        tarefas = await Http.GetFromJsonAsync<List<Tarefa>>("api/tarefas");
+        FiltrarTarefas();
+    }
+
+    private void FiltrarTarefas()
+    {
+        if (tarefas == null) return;
+
+        tarefasFiltradas = tarefas.Where(t =>
+            (string.IsNullOrEmpty(filtroTitulo) || t.Titulo.Contains(filtroTitulo, StringComparison.OrdinalIgnoreCase)) &&
+            (filtroStatus == "" || 
+             (filtroStatus == "pendentes" && !t.Concluida) || 
+             (filtroStatus == "concluidas" && t.Concluida))
+        ).ToList();
+
+        OrdenarTarefas();
+    }
+
+    private void OrdenarTarefas()
+    {
+        if (tarefasFiltradas == null) return;
+
+        tarefasFiltradas = ordenacao switch
+        {
+            "vencimento" => tarefasFiltradas.OrderBy(t => t.DataVencimento ?? DateTime.MaxValue).ToList(),
+            _ => tarefasFiltradas.OrderBy(t => t.Titulo).ToList()
+        };
+
+        CalcularPaginacao();
+    }
+
+    private void CalcularPaginacao()
+    {
+        if (tarefasFiltradas == null) return;
+
+        totalPaginas = (int)Math.Ceiling((double)tarefasFiltradas.Count / itensPorPagina);
+        if (paginaAtual > totalPaginas) paginaAtual = 1;
+
+        tarefasPaginadas = tarefasFiltradas
+            .Skip((paginaAtual - 1) * itensPorPagina)
+            .Take(itensPorPagina)
+            .ToList();
+    }
+
+    private void MudarPagina(int novaPagina)
+    {
+        if (novaPagina >= 1 && novaPagina <= totalPaginas)
+        {
+            paginaAtual = novaPagina;
+            CalcularPaginacao();
+        }
+    }
+
+    private async Task AlternarStatus(Tarefa tarefa)
+    {
+        await Http.PutAsJsonAsync($"api/tarefas/{tarefa.Id}", tarefa);
+        ToastService.ShowSuccess($"Status da tarefa '{tarefa.Titulo}' alterado!");
+    }
+
+    private void ExcluirTarefa(int id)
+    {
+        MostrarConfirmacaoExclusao(id);
+    }
+
+    private bool mostrarModal = false;
+    private int tarefaParaExcluir = 0;
+
+    private void MostrarConfirmacaoExclusao(int id)
+    {
+        tarefaParaExcluir = id;
+        mostrarModal = true;
+    }
+
+    private async Task ConfirmarExclusaoModal()
+    {
+        mostrarModal = false;
+        await Http.DeleteAsync($"api/tarefas/{tarefaParaExcluir}");
+        ToastService.ShowSuccess("Tarefa excluída com sucesso!");
+        await CarregarTarefas();
+    }
+
+    private void CancelarExclusao()
+    {
+        mostrarModal = false;
+        tarefaParaExcluir = 0;
+    }
+
+    private void NovatTarefa()
+    {
+        Navigation.NavigateTo("/tarefa");
+    }
+
+    private void EditarTarefa(int id)
+    {
+        Navigation.NavigateTo($"/tarefa/{id}");
+    }
+}

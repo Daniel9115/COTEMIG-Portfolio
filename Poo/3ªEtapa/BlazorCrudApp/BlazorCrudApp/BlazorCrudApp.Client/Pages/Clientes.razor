@@ -1,0 +1,82 @@
+﻿@page "/clientes"
+@using BlazorCrudApp.Shared.Models
+@using BlazorCrudApp.Client.Services
+@inject IClienteService ClienteService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Clientes</PageTitle>
+
+<h3>Gerenciamento de Clientes</h3>
+
+<div class="mb-3">
+    <input type="text" @bind="busca" placeholder="Pesquisar por nome" class="form-control" />
+    <button class="btn btn-primary mt-2" @onclick="Pesquisar">Pesquisar</button>
+</div>
+
+<div class="mb-3">
+    <button class="btn btn-success" @onclick="AdicionarCliente">Novo Cliente</button>
+</div>
+
+@if (clientes == null)
+{
+    <p><em>Carregando...</em></p>
+}
+else if (clientes.Count == 0)
+{
+    <div class="alert alert-info">Nenhum cliente encontrado.</div>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr><th>ID</th><th>Nome</th><th>Email</th><th>Telefone</th><th>Ações</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var c in clientes)
+            {
+                <tr>
+                    <td>@c.Id</td>
+                    <td>@c.Nome</td>
+                    <td>@c.Email</td>
+                    <td>@c.Telefone</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning me-2" @onclick="() => EditarCliente(c.Id)">Editar</button>
+                        <button class="btn btn-sm btn-danger" @onclick="() => ExcluirCliente(c.Id)">Excluir</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Cliente>? clientes;
+    private string busca = "";
+
+    protected override async Task OnInitializedAsync() => await CarregarClientes();
+
+    private async Task CarregarClientes() =>
+        clientes = await ClienteService.GetClientes(busca);
+
+    private void AdicionarCliente() => Navigation.NavigateTo("/cliente/novo");
+
+    private void EditarCliente(int id) => Navigation.NavigateTo($"/cliente/editar/{id}");
+
+    private async Task ExcluirCliente(int id)
+    {
+        var cliente = clientes?.FirstOrDefault(c => c.Id == id);
+        if (cliente != null)
+        {
+            var confirmacao = await JSRuntime.InvokeAsync<bool>("confirm",
+                $"Deseja excluir o cliente '{cliente.Nome}'?");
+            if (confirmacao)
+            {
+                await ClienteService.DeleteCliente(id);
+                await CarregarClientes();
+            }
+        }
+    }
+
+    private async Task Pesquisar() => await CarregarClientes();
+}

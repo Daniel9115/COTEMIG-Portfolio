@@ -1,0 +1,417 @@
+@page "/tarefas"
+@using GerenciadorDeTarefas.Shared.Models
+@using Microsoft.AspNetCore.Authorization
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@attribute [Authorize]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<PageTitle>Minhas Tarefas</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0"><i class="fas fa-tasks me-2"></i>Minhas Tarefas</h2>
+                <button class="btn btn-primary btn-lg" @onclick="AbrirModal">
+                    <i class="fas fa-plus me-2"></i>Nova Tarefa
+                </button>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-6 col-md-3">
+                    <div class="card text-center bg-primary text-white">
+                        <div class="card-body">
+                            <h5>@tarefas.Count</h5>
+                            <small>Todas</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card text-center bg-warning text-dark">
+                        <div class="card-body">
+                            <h5>@tarefas.Count(t => !t.Concluida)</h5>
+                            <small>Pendentes</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card text-center bg-success text-white">
+                        <div class="card-body">
+                            <h5>@tarefas.Count(t => t.Concluida)</h5>
+                            <small>Concluídas</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card text-center bg-info text-white">
+                        <div class="card-body">
+                            <h5>0</h5>
+                            <small>Compartilhadas</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        @if (!string.IsNullOrEmpty(mensagem))
+        {
+            <div class="alert alert-@tipoMensagem alert-dismissible fade show" role="alert">
+                @mensagem
+                <button type="button" class="btn-close" @onclick="() => mensagem = null"></button>
+            </div>
+        }
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            @if (carregando)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-2">Carregando tarefas...</p>
+                </div>
+            }
+            else if (tarefas?.Any() == true)
+            {
+                <div class="d-none d-md-block">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Título</th>
+                                    <th>Descrição</th>
+                                    <th>Vencimento</th>
+                                    <th>Status</th>
+                                    <th class="text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var tarefa in tarefas)
+                                {
+                                    <tr class="@(tarefa.Concluida ? "table-success" : "")">
+                                        <td><strong>@tarefa.Titulo</strong></td>
+                                        <td>@tarefa.Descricao</td>
+                                        <td>@tarefa.DataVencimento.ToString("dd/MM/yyyy")</td>
+                                        <td>
+                                            <span class="badge @(tarefa.Concluida ? "bg-success" : "bg-warning")">
+                                                @(tarefa.Concluida ? "Concluída" : "Pendente")
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm @(tarefa.Concluida ? "btn-outline-secondary" : "btn-success") me-1" @onclick="() => AlternarStatus(tarefa.Id)">
+                                                <i class="fas @(tarefa.Concluida ? "fa-undo" : "fa-check")"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => AbrirModalCompartilhar(tarefa.Id)">
+                                                <i class="fas fa-share"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Excluir(tarefa.Id)">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="d-md-none">
+                    @foreach (var tarefa in tarefas)
+                    {
+                        <div class="card mb-3 @(tarefa.Concluida ? "border-success" : "border-warning")">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h5 class="card-title mb-0">@tarefa.Titulo</h5>
+                                    <span class="badge @(tarefa.Concluida ? "bg-success" : "bg-warning")">
+                                        @(tarefa.Concluida ? "Concluída" : "Pendente")
+                                    </span>
+                                </div>
+                                <p class="card-text text-muted mb-2">@tarefa.Descricao</p>
+                                <p class="card-text">
+                                    <small class="text-muted">Vencimento: @tarefa.DataVencimento.ToString("dd/MM/yyyy")</small>
+                                </p>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm @(tarefa.Concluida ? "btn-outline-secondary" : "btn-success") flex-fill" @onclick="() => AlternarStatus(tarefa.Id)">
+                                        <i class="fas @(tarefa.Concluida ? "fa-undo" : "fa-check") me-1"></i>
+                                        @(tarefa.Concluida ? "Reabrir" : "Concluir")
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirModalCompartilhar(tarefa.Id)">
+                                        <i class="fas fa-share"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => Excluir(tarefa.Id)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">Nenhuma tarefa encontrada</h4>
+                    <p class="text-muted">Clique em "Nova Tarefa" para começar</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@if (mostrarModal)
+{
+    <div class="modal show d-block" style="background: rgba(0,0,0,0.7); z-index: 1050;">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i>Nova Tarefa</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="FecharModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Título *</label>
+                        <input class="form-control form-control-lg" placeholder="Digite o título da tarefa" @bind="novaTarefa.Titulo" />
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Descrição</label>
+                        <textarea class="form-control" rows="4" placeholder="Descreva os detalhes da tarefa" @bind="novaTarefa.Descricao"></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Data de Vencimento</label>
+                        <input type="date" class="form-control form-control-lg" @bind="novaTarefa.DataVencimento" />
+                    </div>
+                </div>
+                <div class="modal-footer p-4">
+                    <button class="btn btn-outline-secondary btn-lg" @onclick="FecharModal">
+                        <i class="fas fa-times me-2"></i>Cancelar
+                    </button>
+                    <button class="btn btn-primary btn-lg" @onclick="Salvar">
+                        <i class="fas fa-save me-2"></i>Salvar Tarefa
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (mostrarModalCompartilhar)
+{
+    <div class="modal show d-block" style="background: rgba(0,0,0,0.7); z-index: 1050;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-share me-2"></i>Compartilhar Tarefa</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="FecharModalCompartilhar"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">ID do Usuário</label>
+                        <input class="form-control" placeholder="Digite o ID do usuário" @bind="usuarioCompartilhar" />
+                        <div class="form-text">Digite o ID do usuário com quem deseja compartilhar esta tarefa</div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(erroCompartilhar))
+                    {
+                        <div class="alert alert-danger">@erroCompartilhar</div>
+                    }
+                </div>
+                <div class="modal-footer p-4">
+                    <button class="btn btn-outline-secondary" @onclick="FecharModalCompartilhar">
+                        <i class="fas fa-times me-2"></i>Cancelar
+                    </button>
+                    <button class="btn btn-info" @onclick="CompartilharTarefa">
+                        <i class="fas fa-share me-2"></i>Compartilhar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Tarefa> tarefas = new();
+    private bool carregando = false;
+    private bool mostrarModal = false;
+    private bool mostrarModalCompartilhar = false;
+    private Tarefa novaTarefa = new();
+    private string? mensagem = null;
+    private string? tipoMensagem = null;
+    private int tarefaIdCompartilhar = 0;
+    private string usuarioCompartilhar = "";
+    private string? erroCompartilhar = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Delay(100); // Aguarda renderização
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        carregando = true;
+        StateHasChanged();
+        
+        try
+        {
+            var response = await Http.GetAsync("api/tarefas");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                tarefas = System.Text.Json.JsonSerializer.Deserialize<List<Tarefa>>(json, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                }) ?? new();
+            }
+            else
+            {
+                tarefas = new();
+            }
+        }
+        catch 
+        {
+            tarefas = new();
+        }
+        
+        carregando = false;
+        StateHasChanged();
+    }
+
+    private void AbrirModal()
+    {
+        novaTarefa = new() { DataVencimento = DateTime.Today.AddDays(1) };
+        mostrarModal = true;
+        StateHasChanged();
+    }
+
+    private void FecharModal()
+    {
+        mostrarModal = false;
+        novaTarefa = new();
+        StateHasChanged();
+    }
+
+    private async Task Salvar()
+    {
+        if (string.IsNullOrWhiteSpace(novaTarefa.Titulo)) 
+        {
+            mensagem = "Por favor, preencha o título da tarefa.";
+            tipoMensagem = "warning";
+            return;
+        }
+        
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/tarefas", novaTarefa);
+            if (response.IsSuccessStatusCode)
+            {
+                mensagem = "Tarefa cadastrada com sucesso!";
+                tipoMensagem = "success";
+                FecharModal();
+                await Carregar();
+            }
+            else
+            {
+                mensagem = "Erro ao cadastrar tarefa. Tente novamente.";
+                tipoMensagem = "danger";
+            }
+        }
+        catch
+        {
+            mensagem = "Erro ao cadastrar tarefa. Verifique sua conexão.";
+            tipoMensagem = "danger";
+        }
+        
+        StateHasChanged();
+    }
+
+    private async Task AlternarStatus(int tarefaId)
+    {
+        try
+        {
+            var response = await Http.PatchAsync($"/api/tarefas/{tarefaId}/concluir", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await Carregar();
+                mensagem = "Status da tarefa alterado com sucesso!";
+                tipoMensagem = "success";
+            }
+        }
+        catch 
+        {
+            mensagem = "Erro ao alterar status da tarefa.";
+            tipoMensagem = "danger";
+        }
+        StateHasChanged();
+    }
+
+    private async Task Excluir(int id)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"/api/tarefas/{id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await Carregar();
+                mensagem = "Tarefa excluída com sucesso!";
+                tipoMensagem = "success";
+            }
+        }
+        catch 
+        {
+            mensagem = "Erro ao excluir tarefa.";
+            tipoMensagem = "danger";
+        }
+        StateHasChanged();
+    }
+
+    private void AbrirModalCompartilhar(int tarefaId)
+    {
+        tarefaIdCompartilhar = tarefaId;
+        usuarioCompartilhar = "";
+        erroCompartilhar = null;
+        mostrarModalCompartilhar = true;
+        StateHasChanged();
+    }
+
+    private void FecharModalCompartilhar()
+    {
+        mostrarModalCompartilhar = false;
+        usuarioCompartilhar = "";
+        erroCompartilhar = null;
+        StateHasChanged();
+    }
+
+    private async Task CompartilharTarefa()
+    {
+        if (string.IsNullOrWhiteSpace(usuarioCompartilhar))
+        {
+            erroCompartilhar = "Por favor, digite o ID do usuário.";
+            return;
+        }
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync($"/api/tarefas/{tarefaIdCompartilhar}/compartilhar", usuarioCompartilhar);
+            if (response.IsSuccessStatusCode)
+            {
+                mensagem = "Tarefa compartilhada com sucesso!";
+                tipoMensagem = "success";
+                FecharModalCompartilhar();
+            }
+            else
+            {
+                var erro = await response.Content.ReadAsStringAsync();
+                erroCompartilhar = erro;
+            }
+        }
+        catch
+        {
+            erroCompartilhar = "Erro ao compartilhar tarefa. Tente novamente.";
+        }
+        StateHasChanged();
+    }
+}

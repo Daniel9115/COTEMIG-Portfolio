@@ -1,0 +1,388 @@
+@using GerenciadorDeTarefas.Shared.Models
+@using GerenciadorDeTarefas.Client.Services
+@inject TarefaService TarefaService
+@inject IJSRuntime JSRuntime
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>Gerenciador de Tarefas</h3>
+        <button class="btn btn-success" @onclick="AbrirModalNovaTarefa">
+            <i class="fas fa-plus"></i> Nova Tarefa
+        </button>
+    </div>
+    
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <button class="btn btn-outline-primary" @onclick="CarregarTarefas">
+                <i class="fas fa-sync"></i> Atualizar
+            </button>
+        </div>
+        <div class="col-md-6">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" @bind="mostrarConcluidas" @bind:after="FiltrarTarefas">
+                <label class="form-check-label">Mostrar concluídas</label>
+            </div>
+        </div>
+    </div>
+    
+    @if (carregando)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+        </div>
+    }
+    else if (!tarefasFiltradas.Any())
+    {
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle"></i> Nenhuma tarefa encontrada.
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var tarefa in tarefasFiltradas)
+            {
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card @GetCardClass(tarefa)">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0 @(tarefa.Concluida ? "text-decoration-line-through text-muted" : "")">
+                                @tarefa.Titulo
+                            </h6>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" 
+                                       checked="@tarefa.Concluida" 
+                                       @onchange="() => AlternarConclusao(tarefa.Id)" />
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text @(tarefa.Concluida ? "text-muted" : "")">@tarefa.Descricao</p>
+                            <small class="text-muted">
+                                Vencimento: @tarefa.DataVencimento.ToString("dd/MM/yyyy")
+                                @if (tarefa.DataVencimento < DateTime.Now && !tarefa.Concluida)
+                                {
+                                    <span class="badge bg-danger ms-2">Atrasada</span>
+                                }
+                                @if (tarefa.Concluida)
+                                {
+                                    <span class="badge bg-success ms-2">Concluída</span>
+                                }
+                            </small>
+                        </div>
+                        <div class="card-footer">
+                            <div class="btn-group w-100" role="group">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => EditarTarefa(tarefa)">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-info" @onclick="() => GerenciarCompartilhamentos(tarefa.Id)">
+                                    <i class="fas fa-share"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => ExcluirTarefa(tarefa.Id)">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Modal Nova/Editar Tarefa -->
+@if (mostrarModalTarefa)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(tarefaEditando.Id > 0 ? "Editar Tarefa" : "Nova Tarefa")</h5>
+                    <button type="button" class="btn-close" @onclick="FecharModalTarefa"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="tarefaEditando" OnValidSubmit="SalvarTarefa">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger" />
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Título:</label>
+                            <InputText class="form-control" @bind-Value="tarefaEditando.Titulo" />
+                            <ValidationMessage For="() => tarefaEditando.Titulo" />
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Descrição:</label>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="tarefaEditando.Descricao" />
+                            <ValidationMessage For="() => tarefaEditando.Descricao" />
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Data de Vencimento:</label>
+                            <InputDate class="form-control" @bind-Value="tarefaEditando.DataVencimento" />
+                            <ValidationMessage For="() => tarefaEditando.DataVencimento" />
+                        </div>
+                        
+                        @if (!string.IsNullOrEmpty(mensagemErro))
+                        {
+                            <div class="alert alert-danger">@mensagemErro</div>
+                        }
+                        
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="FecharModalTarefa">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Salvar</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal Compartilhamentos -->
+@if (mostrarModalCompartilhamentos)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Gerenciar Compartilhamentos</h5>
+                    <button type="button" class="btn-close" @onclick="FecharModalCompartilhamentos"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Compartilhar com usuário:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" @bind="novoUsuarioCompartilhamento" 
+                                   placeholder="ID do usuário" />
+                            <button class="btn btn-outline-primary" @onclick="AdicionarCompartilhamento">
+                                Adicionar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    @if (compartilhamentosAtuais.Any())
+                    {
+                        <h6>Compartilhado com:</h6>
+                        <ul class="list-group">
+                            @foreach (var usuario in compartilhamentosAtuais)
+                            {
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    @usuario
+                                    <button class="btn btn-sm btn-outline-danger" 
+                                            @onclick="() => RemoverCompartilhamento(usuario)">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted">Esta tarefa não está compartilhada com ninguém.</p>
+                    }
+                    
+                    @if (!string.IsNullOrEmpty(mensagemErro))
+                    {
+                        <div class="alert alert-danger mt-3">@mensagemErro</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="FecharModalCompartilhamentos">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Tarefa> tarefas = new();
+    private List<Tarefa> tarefasFiltradas = new();
+    private bool carregando = true;
+    private bool mostrarConcluidas = true;
+    
+    // Modal Tarefa
+    private bool mostrarModalTarefa = false;
+    private Tarefa tarefaEditando = new();
+    
+    // Modal Compartilhamentos
+    private bool mostrarModalCompartilhamentos = false;
+    private int tarefaIdCompartilhamentos;
+    private List<string> compartilhamentosAtuais = new();
+    private string novoUsuarioCompartilhamento = "";
+    
+    private string mensagemErro = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarTarefas();
+    }
+
+    private async Task CarregarTarefas()
+    {
+        try
+        {
+            carregando = true;
+            tarefas = await TarefaService.GetMinhasTarefasAsync();
+            FiltrarTarefas();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao carregar tarefas: {ex.Message}");
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+
+    private void FiltrarTarefas()
+    {
+        tarefasFiltradas = mostrarConcluidas 
+            ? tarefas.OrderBy(t => t.Concluida).ThenBy(t => t.DataVencimento).ToList()
+            : tarefas.Where(t => !t.Concluida).OrderBy(t => t.DataVencimento).ToList();
+    }
+
+    private string GetCardClass(Tarefa tarefa)
+    {
+        if (tarefa.Concluida) return "border-success";
+        if (tarefa.DataVencimento < DateTime.Now) return "border-danger";
+        return "border-warning";
+    }
+
+    private async Task AlternarConclusao(int tarefaId)
+    {
+        try
+        {
+            await TarefaService.AlternarConclusaoAsync(tarefaId);
+            await CarregarTarefas();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao alterar status: {ex.Message}");
+        }
+    }
+
+    private void AbrirModalNovaTarefa()
+    {
+        tarefaEditando = new Tarefa { DataVencimento = DateTime.Today.AddDays(1) };
+        mensagemErro = "";
+        mostrarModalTarefa = true;
+    }
+
+    private void EditarTarefa(Tarefa tarefa)
+    {
+        tarefaEditando = new Tarefa
+        {
+            Id = tarefa.Id,
+            Titulo = tarefa.Titulo,
+            Descricao = tarefa.Descricao,
+            DataVencimento = tarefa.DataVencimento,
+            Concluida = tarefa.Concluida,
+            UsuarioId = tarefa.UsuarioId
+        };
+        mensagemErro = "";
+        mostrarModalTarefa = true;
+    }
+
+    private async Task SalvarTarefa()
+    {
+        try
+        {
+            if (tarefaEditando.Id > 0)
+            {
+                await TarefaService.UpdateTarefaAsync(tarefaEditando);
+            }
+            else
+            {
+                await TarefaService.AddTarefaAsync(tarefaEditando);
+            }
+            
+            FecharModalTarefa();
+            await CarregarTarefas();
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = ex.Message;
+        }
+    }
+
+    private void FecharModalTarefa()
+    {
+        mostrarModalTarefa = false;
+        mensagemErro = "";
+    }
+
+    private async Task ExcluirTarefa(int tarefaId)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Tem certeza que deseja excluir esta tarefa?"))
+        {
+            try
+            {
+                await TarefaService.DeleteTarefaAsync(tarefaId);
+                await CarregarTarefas();
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Erro ao excluir tarefa: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task GerenciarCompartilhamentos(int tarefaId)
+    {
+        try
+        {
+            tarefaIdCompartilhamentos = tarefaId;
+            compartilhamentosAtuais = await TarefaService.GetCompartilhamentosAsync(tarefaId);
+            novoUsuarioCompartilhamento = "";
+            mensagemErro = "";
+            mostrarModalCompartilhamentos = true;
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao carregar compartilhamentos: {ex.Message}");
+        }
+    }
+
+    private async Task AdicionarCompartilhamento()
+    {
+        if (string.IsNullOrWhiteSpace(novoUsuarioCompartilhamento))
+        {
+            mensagemErro = "Digite o ID do usuário.";
+            return;
+        }
+
+        try
+        {
+            await TarefaService.ShareTarefaAsync(tarefaIdCompartilhamentos, novoUsuarioCompartilhamento);
+            compartilhamentosAtuais.Add(novoUsuarioCompartilhamento);
+            novoUsuarioCompartilhamento = "";
+            mensagemErro = "";
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = ex.Message;
+        }
+    }
+
+    private async Task RemoverCompartilhamento(string usuarioId)
+    {
+        try
+        {
+            await TarefaService.RemoverCompartilhamentoAsync(tarefaIdCompartilhamentos, usuarioId);
+            compartilhamentosAtuais.Remove(usuarioId);
+            mensagemErro = "";
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = ex.Message;
+        }
+    }
+
+    private void FecharModalCompartilhamentos()
+    {
+        mostrarModalCompartilhamentos = false;
+        mensagemErro = "";
+    }
+}

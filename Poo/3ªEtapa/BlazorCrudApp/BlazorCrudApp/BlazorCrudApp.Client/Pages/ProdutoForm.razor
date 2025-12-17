@@ -1,0 +1,90 @@
+﻿@page "/produto/novo"
+@page "/produto/editar/{id:int}"
+@using BlazorCrudApp.Shared.Models
+@using BlazorCrudApp.Client.Services
+@inject IProdutoService ProdutoService
+@inject NavigationManager Navigation
+@rendermode @(new InteractiveAutoRenderMode(prerender: false))
+
+<PageTitle>@(Id.HasValue ? "Editar Produto" : "Novo Produto")</PageTitle>
+
+<h3>@(Id.HasValue ? "Editar Produto" : "Novo Produto")</h3>
+
+<div class="row">
+    <div class="col-md-6">
+        
+        <EditForm Model="produto" OnValidSubmit="SalvarProduto">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+
+            <div class="mb-3">
+                <label for="nome" class="form-label">Nome:</label>
+                <InputText id="nome" class="form-control" @bind-Value="produto.Nome" />
+                <ValidationMessage For="@(() => produto.Nome)" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label for="preco" class="form-label">Preço:</label>
+                <InputNumber id="preco" class="form-control" @bind-Value="produto.Preco" />
+                <ValidationMessage For="@(() => produto.Preco)" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label for="quantidade" class="form-label">Quantidade:</label>
+                <InputNumber id="quantidade" class="form-control" @bind-Value="produto.Quantidade" />
+                <ValidationMessage For="@(() => produto.Quantidade)" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <button type="submit" class="btn btn-success me-2">Salvar</button>
+                <button type="button" class="btn btn-secondary" @onclick="Cancelar">Cancelar</button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    // Parâmetro que recebe o valor de '{id}' da URL. Pode ser nulo (para 'novo').
+    [Parameter] public int? Id { get; set; }
+
+    // O objeto que será vinculado ao formulário (Model).
+    private Produto produto = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Se um ID foi passado na URL, estamos no modo de edição.
+        if (Id.HasValue)
+        {
+            // Busca os dados do produto na API para preencher o formulário.
+            var produtoExistente = await ProdutoService.GetProduto(Id.Value);
+            if (produtoExistente != null)
+            {
+                produto = produtoExistente;
+            }
+            else // Se o produto não for encontrado, volta para a lista.
+            {
+                Navigation.NavigateTo("/produtos");
+            }
+        }
+    }
+
+    // Método executado quando o formulário é enviado e os dados são válidos.
+    private async Task SalvarProduto()
+    {
+        if (Id.HasValue)
+        {
+            await ProdutoService.UpdateProduto(produto);
+        }
+        else
+        {
+            await ProdutoService.AddProduto(produto);
+        }
+        // Após salvar, redireciona de volta para a lista de produtos.
+        Navigation.NavigateTo("/produtos");
+    }
+
+    private void Cancelar()
+    {
+        Navigation.NavigateTo("/produtos");
+    }
+}
