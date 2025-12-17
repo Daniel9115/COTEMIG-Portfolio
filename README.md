@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 🎓 Portfólio Técnico - COTEMIG
 
 ## 👨‍💻 Sobre Mim
